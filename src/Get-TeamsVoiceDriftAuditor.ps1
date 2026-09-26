@@ -26,7 +26,7 @@ param (
 $ErrorActionPreference = 'Stop'
 
 # Ensure report output folder exists
-if (-not (Test-Path $ReportOutputDir)) {
+if (-not (Test-Path -Path $ReportOutputDir)) {
     New-Item -ItemType Directory -Path $ReportOutputDir -Force | Out-Null
 }
 
@@ -44,7 +44,8 @@ try {
         Write-Host "[+] Connecting to Microsoft Teams..." -ForegroundColor Yellow
         Connect-MicrosoftTeams
     }
-} catch {
+}
+catch {
     Connect-MicrosoftTeams
 }
 
@@ -82,36 +83,41 @@ function Get-CachedGroupMembers {
 # ==============================================================================
 if (-not $SkipCallQueues) {
     Write-Host "`n[*] Auditing Call Queues for roster drift and routing orphans..." -ForegroundColor Cyan
-    $CallQueues = Get-CsCallQueue$CQAuditReport = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $CallQueues = Get-CsCallQueue;
+    $CQAuditReport = [System.Collections.Generic.List[PSCustomObject]]::new()
 
-    foreach ($cq in$CallQueues) {
-        $totalAgents = 0$disabledAgents = 0
+    foreach ($cq in $CallQueues) {
+        $totalAgents = 0
+        $disabledAgents = 0
         $hasEmptyGroup =$false
 
         # Direct Users
-        if ($cq.Users -and$cq.Users.Count -gt 0) {
-            $totalAgents +=$cq.Users.Count
-            foreach ($uid in$cq.Users) {
-                if (-not (Get-CachedUserStatus -UserId $uid)) {$disabledAgents++ }
+        if ($cq.Users -and $cq.Users.Count -gt 0) {
+            $totalAgents += $cq.Users.Count
+            foreach ($uid in $cq.Users) {
+                if (-not (Get-CachedUserStatus -UserId $uid)) {$disabledAgents++ 
+                }
             }
         }
 
         # Groups / Teams
-        if ($cq.DistributionLists -and$cq.DistributionLists.Count -gt 0) {
-            foreach ($gid in$cq.DistributionLists) {
-                $groupMembers = Get-CachedGroupMembers -GroupId$gid
+        if ($cq.DistributionLists -and $cq.DistributionLists.Count -gt 0) {
+            foreach ($gid in $cq.DistributionLists) {
+                $groupMembers = Get-CachedGroupMembers -GroupId $gid
                 if ($groupMembers.Count -eq 0) {
                     $hasEmptyGroup =$true
-                } else {
-                    $totalAgents +=$groupMembers.Count
-                    foreach ($mid in$groupMembers) {
-                        if (-not (Get-CachedUserStatus -UserId $mid)) {$disabledAgents++ }
+                }
+                else {
+                    $totalAgents += $groupMembers.Count
+                    foreach ($mid in $groupMembers) {
+                        if (-not (Get-CachedUserStatus -UserId $mid)) {$disabledAgents++ 
+                        }
                     }
                 }
             }
         }
 
-        $isOrphaned = ($totalAgents -eq 0) -or ($totalAgents -eq$disabledAgents)
+        $isOrphaned = ($totalAgents -eq 0) -or ($totalAgents -eq $disabledAgents)
 
         $CQAuditReport.Add([PSCustomObject]@{
             QueueName           = $cq.Name
@@ -128,7 +134,8 @@ if (-not $SkipCallQueues) {
     }
 
     $cqExportPath = Join-Path $ReportOutputDir "CallQueue_DriftReport_$Timestamp.csv"
-    $CQAuditReport | Export-Csv -Path $cqExportPath -NoTypeInformation$CQAuditReport | Format-Table QueueName, ActiveAgents, DisabledAgents, EmptyGroupAttached, IsOrphaned -AutoSize
+    $CQAuditReport | Export-Csv -Path $cqExportPath -NoTypeInformation 
+    $CQAuditReport | Format-Table QueueName, ActiveAgents, DisabledAgents, EmptyGroupAttached, IsOrphaned -AutoSize
     Write-Host "[+] Call Queue report generated: $cqExportPath" -ForegroundColor Green
 }
 
@@ -164,15 +171,21 @@ if (-not $SkipAutoAttendants) {
         }
 
         # Operator target check
-        if ($aa.Operator) {
-            $target = $aa.Operator.Target
-            if ($aa.Operator.Type -eq "User") {
-                $opUser = Get-CsOnlineUser -Identity $target -ErrorAction SilentlyContinue
-                if (-not $opUser) {
-                    $warnings.Add("Assigned operator identity '$target' does not resolve.")
-                }
+        # Operator target check (Direct Graph + Teams Verification)
+    if ($aa.Operator) {
+        $target = $aa.Operator.Target
+        if ($aa.Operator.Type -eq "User") {
+            # Check active Entra ID status via Microsoft Graph
+            $graphUser = Get-MgUser -UserId $target -Property AccountEnabled, Id -ErrorAction SilentlyContinue
+
+            if (-not $graphUser) {
+            $warnings.Add("Assigned operator identity '$target' does not exist or has been soft-deleted.")
+            }
+            elseif (-not $graphUser.AccountEnabled) {
+            $warnings.Add("Assigned operator identity '$target' is disabled in Entra ID.")
             }
         }
+    }
 
         $AAAuditReport.Add([PSCustomObject]@{
             AutoAttendantName = $aa.Name
