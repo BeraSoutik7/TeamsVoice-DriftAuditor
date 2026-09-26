@@ -1,0 +1,5 @@
+# .gitignore
+reports/*.csv
+reports/*.json
+*.log
+.vscode/
