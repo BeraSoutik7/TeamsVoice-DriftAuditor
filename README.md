@@ -2,6 +2,12 @@
 
 Enterprise diagnostic engine to detect configuration drift, orphaned call routes, stale agent rosters, and broken fallback destinations across Microsoft Teams Auto Attendants (AA) and Call Queues (CQ).
 
+## Overview
+
+**TeamsVoice-DriftAuditor** is a specialized diagnostic suite built with PowerShell, Microsoft Graph, and MicrosoftTeams cmdlets to audit Microsoft Teams Phone System routing health.
+
+As organizational changes occur, Auto Attendants and Call Queues naturally experience "configuration drift" — agents leave the company, groups become empty, holiday schedules get removed, or forwarding targets point to decommissioned accounts. This tool scans your entire telephony topology in read-only mode to surface broken paths before they result in dropped customer calls.
+
 ## Key Audit Capabilities
 
 * **Call Queue Agent Health:** Flags empty direct rosters, empty M365/Security distribution groups, and disabled Entra ID user accounts.
